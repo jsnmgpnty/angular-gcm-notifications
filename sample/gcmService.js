@@ -6,6 +6,8 @@ self.errorIcon = null;
 
 self.defaultIcon = null;
 
+self.periodicNotifications = [];
+
 self.addEventListener('push', function(event, a, b, c) {  
 	var refreshIntervalId = setInterval(function () {
 		if (self.deviceId && self.notificationsApi) {
@@ -55,12 +57,48 @@ self.addEventListener('push', function(event, a, b, c) {
 	}, 250);
 });
 
+self.addEventListener("install", function(e) {
+	setInterval(function () {
+		var notificationsLength = self.periodicNotifications.length;
+		for (var i = 0; i < notificationsLength; i++) {
+			if (self.periodicNotifications[i]) {
+				var dt = self.periodicNotifications[i].date;
+				var dtNow = new Date();
+				if (dt <= dtNow) {
+					var notification = self.periodicNotifications[i].notification;
+					var title = notification.title;
+					var message = notification.message;
+					var icon = notification.icon;
+					var notificationTag = notification.tag;
+					var url = notification.url;
+					
+					self.periodicNotifications.splice(i, 1);
+					
+					return self.registration.showNotification(title, {
+						body: message,
+						icon: icon,
+						tag: notificationTag,
+						data: url
+					});
+				}
+			}
+		}
+	}, 10000);
+}, false);
+
 self.addEventListener("message", function(e) {
-	var data = e.data;
-    self.deviceId = data.deviceId;
-    self.notificationsApi = data.notificationsApi;
-    self.errorIcon = data.errorIcon;
-    self.defaultIcon = data.defaultIcon;
+	if (e.data) {
+		if (e.data.type === "default") {
+			var data = e.data.data;
+			self.deviceId = data.deviceId;
+		  self.notificationsApi = data.notificationsApi;
+		  self.errorIcon = data.errorIcon;
+		  self.defaultIcon = data.defaultIcon;
+		} else if (e.data.type === "notifications") {
+			var data = e.data.data;
+			self.periodicNotifications = data;
+		}
+	}
 }, false);
 
 self.addEventListener('notificationclick', function(event) {  
